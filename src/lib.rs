@@ -4,6 +4,7 @@ enum Ast<'a> {
     Sub { lhs: &'a Ast<'a>, rhs: &'a Ast<'a> },
     Mul { lhs: &'a Ast<'a>, rhs: &'a Ast<'a> },
     Div { lhs: &'a Ast<'a>, rhs: &'a Ast<'a> },
+    LiteralInteger(i64),
 }
 
 #[derive(Copy, Clone)]
@@ -48,12 +49,11 @@ impl MyRange {
     }
 }
 
-impl Default for MyRange{
+impl Default for MyRange {
     fn default() -> Self {
         Self::new()
     }
 }
-
 
 enum Tokens {
     Integer(i32),
@@ -72,7 +72,26 @@ impl Lexer {
     }
 
     pub fn lex(&mut self, raw_text: &str) {
-        // raw_text.chars()
+        let mut chars = ByteTracker::new(raw_text.chars().chain("\0".chars()));
+
+        #[derive(Copy,Clone)]
+        enum LexerState {
+            Start,
+            Number,
+        }
+
+        let mut state = LexerState::Start;
+
+        for CharInfo{glyph,pos} in chars{
+            match state {
+                LexerState::Start => {
+
+                },
+                LexerState::Number => {
+
+                }
+            }
+        }
     }
 }
 
@@ -81,7 +100,6 @@ impl Default for Lexer {
         Self::new()
     }
 }
-
 
 #[derive(Copy, Clone)]
 pub struct CharInfo {
