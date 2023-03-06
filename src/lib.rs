@@ -27,6 +27,12 @@ impl MyRange {
             ubound: lbound,
         }
     }
+    pub fn start_at_and_include(lbound: usize, c: char) -> Self {
+        Self {
+            lbound,
+            ubound: lbound + c.len_utf8(),
+        }
+    }
 
     pub fn expand(&mut self, new_ubound: usize) {
         self.ubound = self.ubound.max(new_ubound);
@@ -55,16 +61,16 @@ impl Default for MyRange {
     }
 }
 
-enum Tokens {
+enum Token {
     Integer(i32),
-    Add(MyRange),
-    Sub(MyRange),
-    Div(MyRange),
-    Mul(MyRange),
+    Add,
+    Sub,
+    Div,
+    Mul,
 }
 
 pub struct Lexer {
-    tokens: Vec<Tokens>,
+    tokens: Vec<Token>,
 }
 impl Lexer {
     pub fn new() -> Self {
@@ -72,24 +78,36 @@ impl Lexer {
     }
 
     pub fn lex(&mut self, raw_text: &str) {
-        let mut chars = ByteTracker::new(raw_text.chars().chain("\0".chars()));
+        let chars = ByteTracker::new(raw_text.chars().chain("\0".chars()));
 
-        #[derive(Copy,Clone)]
+        #[derive(Copy, Clone)]
         enum LexerState {
             Start,
             Number,
         }
 
         let mut state = LexerState::Start;
+        let mut slice = MyRange::new();
 
-        for CharInfo{glyph,pos} in chars{
+        for CharInfo { glyph, pos } in chars {
             match state {
-                LexerState::Start => {
-
+                LexerState::Start => match glyph {
+                    '0'..='9' => {
+                        slice = MyRange::start_at_and_include(pos, glyph);
+                        state = LexerState::Number;
+                    }
+                    '+' | '-' | '/' | '*' => {
+                        self.tokens.push(match glyph {
+                            '+' => Token::Add,
+                            '-' => Token::Sub,
+                            '*' => Token::Mul,
+                            '/' => Token::Div,
+                            _ => panic!("should be impossible to reach this state"),
+                        });
+                    }
+                    _ => {}
                 },
-                LexerState::Number => {
-
-                }
+                LexerState::Number => {}
             }
         }
     }
@@ -108,9 +126,44 @@ pub struct CharInfo {
 }
 
 #[derive(Clone)]
+
+pub struct History<const N:usize> {
+    values: [usize; N],
+    value_cursor: usize,
+    len:usize, 
+}
+impl <const N:usize> History<N> {
+    pub fn new() -> Self {
+        Self {
+            values: [!0; N],
+            value_cursor: 0,
+            len: 0, 
+        }
+    }
+
+    pub fn clear(&mut self){
+        self.len = 0; 
+    }
+
+    pub fn push(&mut self, val:usize){
+        self.values[self.value_cursor] = val; 
+        self.value_cursor = (self.value_cursor + 1) % N; 
+        self.len = (self.len +1).max(N);
+    }
+    
+    pub fn len(&self)->usize{
+        self.len
+    }
+
+    pub fn is_empty(&self)->bool{
+        self.len() == 0 
+    }
+}
+
 pub struct ByteTracker<UnicodeIter> {
     char_iter: UnicodeIter,
     glyph_pos: usize,
+    history: History<16>,
 }
 
 impl<UnicodeIter> ByteTracker<UnicodeIter>
@@ -121,6 +174,7 @@ where
         Self {
             char_iter,
             glyph_pos: 0,
+            history: History::new(),
         }
     }
 }
@@ -135,6 +189,9 @@ where
         self.char_iter.next().map(|c| {
             let glyph_offset = c.len_utf8();
             let glyph_pos = self.glyph_pos;
+            self.history.push(glyph_pos);
+
+
             self.glyph_pos += glyph_offset;
             CharInfo {
                 glyph: c,
