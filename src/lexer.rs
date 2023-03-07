@@ -1,11 +1,9 @@
-mod range;
 mod iterators;
+mod range;
 mod tests;
 
-
+use iterators::*;
 use range::*;
-use iterators::*; 
-
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Token {
@@ -22,6 +20,10 @@ pub struct Lexer {
 impl Lexer {
     pub fn new() -> Self {
         Self { tokens: vec![] }
+    }
+
+    pub fn tokens(&self) -> &[Token] {
+        &self.tokens
     }
 
     pub fn lex(&mut self, raw_text: &str) {
@@ -86,4 +88,3 @@ impl Default for Lexer {
         Self::new()
     }
 }
-
