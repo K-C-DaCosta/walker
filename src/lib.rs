@@ -15,47 +15,80 @@ enum Ast<'a> {
 #[derive(Default)]
 pub struct Parser {
     lex: Lexer,
-    token_cursor: usize,
 }
+
+#[test]
+fn parser_sanity_pass() {
+    let basic_espression = "1-1-1-";
+    let mut p = Parser::new();
+    let passed = p.parse(basic_espression);
+    println!("passed = {passed}");
+}
+
+#[test]
+fn parser_sanity_fail() {
+    let basic_espression = "1+1+1";
+    let mut p = Parser::new();
+    assert!(!p.parse(basic_espression));
+}
+
 impl Parser {
     pub fn new() -> Self {
-        Self {
-            lex: Lexer::new(),
-            token_cursor: 0,
-        }
+        Self { lex: Lexer::new() }
     }
 
     pub fn parse(&mut self, text: &str) -> bool {
         self.lex.lex(text);
         let tokens = self.lex.tokens();
 
-        let state = ParserState {
+        let mut state = ParserState {
             tokens,
             token_cursor: 0,
         };
 
-        Self::start(state).unwrap_or_default()
+        Self::start(&mut state) && state.no_more_tokens_left()
     }
 
-    fn start(state: ParserState) -> Option<bool> {
-        Self::multi_div(state)
+    fn start(state: &mut ParserState) -> bool {
+        Self::addi_sub(state)
     }
 
-    fn multi_div(mut state: ParserState) -> Option<bool> {
-        let tok = state.get_token()?;
-        let expansion_0 = Self::addi_sub(state)?
-            && (matches!(tok, Token::Mul) || matches!(tok, Token::Div))
-            && Self::multi_div(state)?;
-        let expansion_1 = Self::addi_sub(state)?;
-        Some(expansion_0 || expansion_1)
+    fn multi_div(state: &mut ParserState) -> bool {
+        let expansion_0 = Self::addi_sub(state)
+            && state.accept(|tok| matches!(tok, Some(Token::Mul | Token::Div)))
+            && Self::multi_div(state);
+
+        if expansion_0 {
+            return true;
+        }
+
+        let expansion_1 = Self::addi_sub(state);
+
+        if expansion_1 {
+            return true;
+        }
+
+        false
     }
-    
-    fn addi_sub(mut state: ParserState) -> Option<bool> {
-        let tok = state.get_token()?;
-        Some(
-            (matches!(tok, Token::Integer(_))) && Self::addi_sub(state)?
-                || matches!(tok, Token::Integer(_)),
-        )
+
+    fn addi_sub(state: &mut ParserState) -> bool {
+        let expansion_0 = state.accept(|tok| matches!(tok, Some(Token::Integer(_))))
+            && state.accept(|tok| matches!(tok, Some(Token::Add | Token::Sub)))
+            && Self::addi_sub(state);
+        if expansion_0 {
+            return true;
+        }
+
+        // tokens exausted on expansion_0 so return the last token
+        state.return_token();
+
+
+        let expansion_1 = state.accept(|tok| matches!(tok, Some(Token::Integer(_))));
+        if expansion_1 {
+            return true;
+        }
+
+        false
     }
 }
 
@@ -65,9 +98,24 @@ pub struct ParserState<'a> {
     token_cursor: usize,
 }
 impl<'a> ParserState<'a> {
-    pub fn get_token(&mut self) -> Option<Token> {
+    pub fn accept<CB>(&mut self, f: CB) -> bool
+    where
+        CB: Fn(Option<Token>) -> bool,
+    {
         let token = (self.token_cursor < self.tokens.len()).then(|| self.tokens[self.token_cursor]);
-        self.token_cursor += 1;
-        token
+        if f(token) {
+            self.token_cursor += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn return_token(&mut self){
+        self.token_cursor-=1;
+    }
+
+    pub fn no_more_tokens_left(&self)->bool{
+        self.token_cursor >= self.tokens.len()
     }
 }

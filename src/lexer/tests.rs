@@ -57,3 +57,15 @@ pub fn lexer_sanity_test_4() {
     println!("{:?}", lexer.tokens);
     
 }
+
+#[test]
+pub fn lexer_sanity_test_5() {
+    
+    let raw_text = "1+1+";
+
+    let mut lexer = Lexer::new();
+    lexer.lex(raw_text);
+    
+    println!("{:?}", lexer.tokens);
+    
+}
