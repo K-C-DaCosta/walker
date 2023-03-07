@@ -1,6 +1,8 @@
 pub mod collections;
 pub mod lexer;
 
+use std::num;
+
 use lexer::{Lexer, Token};
 
 #[derive(Copy, Clone)]
@@ -19,7 +21,7 @@ pub struct Parser {
 
 #[test]
 fn parser_sanity_pass() {
-    let basic_espression = "1-1-1-";
+    let basic_espression = "1/1*1+";
     let mut p = Parser::new();
     let passed = p.parse(basic_espression);
     println!("passed = {passed}");
@@ -46,24 +48,28 @@ impl Parser {
             token_cursor: 0,
         };
 
-        Self::start(&mut state) && state.no_more_tokens_left()
+        Self::start(&mut state) && state.all_tokens_used()
     }
 
     fn start(state: &mut ParserState) -> bool {
-        Self::addi_sub(state)
+        Self::multi_div(state)
     }
 
     fn multi_div(state: &mut ParserState) -> bool {
+        let mut old_cursor = *state;
+
         let expansion_0 = Self::addi_sub(state)
-            && state.accept(|tok| matches!(tok, Some(Token::Mul | Token::Div)))
+            && state.accept(&mut old_cursor, |tok| {
+                matches!(tok, Some(Token::Mul | Token::Div))
+            })
             && Self::multi_div(state);
 
         if expansion_0 {
-            return true;
+            return true; 
         }
-
+    
+        *state = old_cursor;
         let expansion_1 = Self::addi_sub(state);
-
         if expansion_1 {
             return true;
         }
@@ -72,18 +78,23 @@ impl Parser {
     }
 
     fn addi_sub(state: &mut ParserState) -> bool {
-        let expansion_0 = state.accept(|tok| matches!(tok, Some(Token::Integer(_))))
-            && state.accept(|tok| matches!(tok, Some(Token::Add | Token::Sub)))
+        let mut old_state = *state;
+
+        let expansion_0 = state
+            .accept(&mut old_state, |tok| matches!(tok, Some(Token::Integer(_))))
+            && state.accept(&mut old_state, |tok| {
+                matches!(tok, Some(Token::Add | Token::Sub))
+            })
             && Self::addi_sub(state);
+        
         if expansion_0 {
-            return true;
+            return  true;
         }
+        
+        *state = old_state; 
 
-        // tokens exausted on expansion_0 so return the last token
-        state.return_token();
-
-
-        let expansion_1 = state.accept(|tok| matches!(tok, Some(Token::Integer(_))));
+        let expansion_1 =
+            state.accept(&mut old_state, |tok| matches!(tok, Some(Token::Integer(_))));
         if expansion_1 {
             return true;
         }
@@ -98,12 +109,13 @@ pub struct ParserState<'a> {
     token_cursor: usize,
 }
 impl<'a> ParserState<'a> {
-    pub fn accept<CB>(&mut self, f: CB) -> bool
+    pub fn accept<CB>(&mut self, ss: &mut ParserState<'a>, f: CB) -> bool
     where
         CB: Fn(Option<Token>) -> bool,
     {
         let token = (self.token_cursor < self.tokens.len()).then(|| self.tokens[self.token_cursor]);
         if f(token) {
+            *ss = *self;
             self.token_cursor += 1;
             true
         } else {
@@ -111,11 +123,11 @@ impl<'a> ParserState<'a> {
         }
     }
 
-    pub fn return_token(&mut self){
-        self.token_cursor-=1;
+    pub fn return_token(&mut self) {
+        self.token_cursor -= 1;
     }
 
-    pub fn no_more_tokens_left(&self)->bool{
+    pub fn all_tokens_used(&self) -> bool {
         self.token_cursor >= self.tokens.len()
     }
 }
