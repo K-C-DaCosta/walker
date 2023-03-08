@@ -12,6 +12,8 @@ pub enum Token {
     Sub,
     Div,
     Mul,
+    ParenL,
+    ParenR,
 }
 
 pub struct Lexer {
@@ -55,6 +57,13 @@ impl Lexer {
                                 '-' => Token::Sub,
                                 '*' => Token::Mul,
                                 '/' => Token::Div,
+                                _ => panic!("should be impossible to reach this state"),
+                            });
+                        }
+                        '(' | ')' => {
+                            self.tokens.push(match glyph {
+                                '(' => Token::ParenL,
+                                ')' => Token::ParenR,
                                 _ => panic!("should be impossible to reach this state"),
                             });
                         }

@@ -21,7 +21,7 @@ pub struct Parser {
 
 #[test]
 fn parser_sanity_pass() {
-    let basic_espression = "1/1*1+";
+    let basic_espression = "(2)+2";
     let mut p = Parser::new();
     let passed = p.parse(basic_espression);
     println!("passed = {passed}");
@@ -52,7 +52,30 @@ impl Parser {
     }
 
     fn start(state: &mut ParserState) -> bool {
-        Self::multi_div(state)
+        Self::arith_expr(state)
+    }
+
+    fn arith_expr(state: &mut ParserState) -> bool {
+        let epsilon = *state; 
+        let mut os = *state;
+
+        let expression_0 = state.accept(&mut os, |tok| matches!(tok, Some(Token::ParenL)))
+            && Self::arith_expr(state)
+            && state.accept(&mut os, |tok| matches!(tok, Some(Token::ParenR)))
+            && Self::arith_expr(state);
+
+        if expression_0 {
+            return true; 
+        }
+        
+        *state = os;  
+        let expression_1 = Self::multi_div(state);
+        if expression_1 {
+            return true; 
+        }
+
+        *state = epsilon; 
+        true
     }
 
     fn multi_div(state: &mut ParserState) -> bool {
@@ -65,9 +88,9 @@ impl Parser {
             && Self::multi_div(state);
 
         if expansion_0 {
-            return true; 
+            return true;
         }
-    
+
         *state = old_cursor;
         let expansion_1 = Self::addi_sub(state);
         if expansion_1 {
@@ -86,12 +109,12 @@ impl Parser {
                 matches!(tok, Some(Token::Add | Token::Sub))
             })
             && Self::addi_sub(state);
-        
+
         if expansion_0 {
-            return  true;
+            return true;
         }
-        
-        *state = old_state; 
+
+        *state = old_state;
 
         let expansion_1 =
             state.accept(&mut old_state, |tok| matches!(tok, Some(Token::Integer(_))));
