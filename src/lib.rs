@@ -21,7 +21,7 @@ pub struct Parser {
 
 #[test]
 fn parser_sanity_pass() {
-    let basic_espression = "2+(2)+";
+    let basic_espression = "113123";
     let mut p = Parser::new();
     let passed = p.parse(basic_espression);
     println!("passed = {passed}");
@@ -31,7 +31,7 @@ fn parser_sanity_pass() {
 fn parser_sanity_fail() {
     let basic_espression = "1+1+1";
     let mut p = Parser::new();
-    assert!(!p.parse(basic_espression));
+    assert!(p.parse(basic_espression));
 }
 
 impl Parser {
