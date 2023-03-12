@@ -21,7 +21,7 @@ pub struct Parser {
 
 #[test]
 fn parser_sanity_pass() {
-    let basic_espression = "(2)+2";
+    let basic_espression = "2+(2)+";
     let mut p = Parser::new();
     let passed = p.parse(basic_espression);
     println!("passed = {passed}");
@@ -56,69 +56,81 @@ impl Parser {
     }
 
     fn arith_expr(state: &mut ParserState) -> bool {
-        let epsilon = *state; 
         let mut os = *state;
 
-        let expression_0 = state.accept(&mut os, |tok| matches!(tok, Some(Token::ParenL)))
-            && Self::arith_expr(state)
-            && state.accept(&mut os, |tok| matches!(tok, Some(Token::ParenR)))
-            && Self::arith_expr(state);
-
-        if expression_0 {
-            return true; 
-        }
-        
-        *state = os;  
-        let expression_1 = Self::multi_div(state);
-        if expression_1 {
-            return true; 
-        }
-
-        *state = epsilon; 
-        true
-    }
-
-    fn multi_div(state: &mut ParserState) -> bool {
-        let mut old_cursor = *state;
-
-        let expansion_0 = Self::addi_sub(state)
-            && state.accept(&mut old_cursor, |tok| {
-                matches!(tok, Some(Token::Mul | Token::Div))
-            })
-            && Self::multi_div(state);
-
-        if expansion_0 {
+        let expr0 = state.accept(&mut os, |tok| matches!(tok, Some(Token::Integer(_))))
+            && Self::arith_expr_prime(state);
+        if expr0 {
             return true;
         }
 
-        *state = old_cursor;
-        let expansion_1 = Self::addi_sub(state);
-        if expansion_1 {
+        *state = os;
+
+        let expr1 = Self::arith_bracket(state) && Self::arith_expr_prime(state);
+        if expr1 {
+            return true;
+        }
+
+        false
+    }
+    fn arith_expr_prime(state: &mut ParserState) -> bool {
+        let epsilon = *state;
+
+        if Self::arith_addsub(state) {
+            return true;
+        }
+
+        *state = epsilon; 
+        if Self::arith_muldiv(state) {
+            return true;
+        }
+
+        *state = epsilon;
+        true
+    }
+
+    fn arith_bracket(state: &mut ParserState) -> bool {
+        let mut os = *state;
+
+        let expr0 = state.accept(&mut os, |tok| matches!(tok, Some(Token::ParenL)))
+            && Self::arith_expr(state)
+            && state.accept(&mut os, |tok| matches!(tok, Some(Token::ParenR)));
+
+        if expr0 {
             return true;
         }
 
         false
     }
 
-    fn addi_sub(state: &mut ParserState) -> bool {
-        let mut old_state = *state;
+    fn arith_addsub(state: &mut ParserState) -> bool {
+        let mut os = *state;
 
-        let expansion_0 = state
-            .accept(&mut old_state, |tok| matches!(tok, Some(Token::Integer(_))))
-            && state.accept(&mut old_state, |tok| {
-                matches!(tok, Some(Token::Add | Token::Sub))
-            })
-            && Self::addi_sub(state);
+        let expr0_predicate =
+            |tok| matches!(tok, Some(Token::Add)) || matches!(tok, Some(Token::Sub));
 
-        if expansion_0 {
+        let expr0 = state.accept(&mut os, expr0_predicate)
+            && Self::arith_expr(state)
+            && Self::arith_expr_prime(state);
+
+        if expr0 {
             return true;
         }
 
-        *state = old_state;
+        false
+    }
 
-        let expansion_1 =
-            state.accept(&mut old_state, |tok| matches!(tok, Some(Token::Integer(_))));
-        if expansion_1 {
+    fn arith_muldiv(state: &mut ParserState) -> bool {
+         let mut os = *state;
+
+        let expr0_predicate =
+            |tok| matches!(tok, Some(Token::Mul)) || matches!(tok, Some(Token::Div));
+            
+        let expr0 = state.accept(&mut os, expr0_predicate)
+            && Self::arith_expr(state)
+            && Self::arith_expr_prime(state);
+
+        if expr0 {
             return true;
         }
 
